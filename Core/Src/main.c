@@ -23,47 +23,53 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "74HC4051.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 typedef enum {
-    MODE_IDLE,          // 等待用户操作
-    MODE_CAL_1M_SFTP,   // 1m SFTP 自校准
-    MODE_CAL_50M_UTP,   // 50m UTP 自校准
-    MODE_DE,    // 双端检测
-    MODE_SE     // 单端检测
+    MODE_IDLE,          // ??????????
+    MODE_CAL_1M_SFTP,   // 1m SFTP ??У?
+    MODE_CAL_50M_UTP,   // 50m UTP ??У?
+    MODE_DE,    // ?????
+    MODE_SE     // ??????
   } SystemMode;
 
-// 双端检测子状态
+// ?????????
 typedef enum {
-    DE_DETECT_ORDER,      // 判断直连或交叉
-    DE_DETECT_TYPE,   // 判断 UTP/SFTP
-    DE_MEASURE_R   // 测量直流电阻
+    DE_DETECT_ORDER,      // ?ж???????
+    DE_DETECT_TYPE,   // ?ж? UTP/SFTP
+    DE_MEASURE_R   // ???????????
   } DE_State;
 
-// 单端检测子状态
+// ??????????
 typedef enum {
-    SE_DETECT_SHORT,        // 检测短路
-    SE_DETECT_TYPE,      // 判断 UTP/SFTP
-    SE_MEASURE_LENGTH,  // TDR 测长度
-    SE_LOCATE_SHORT     // TDR 定位短路点
+    SE_DETECT_SHORT,        // ????·
+    SE_DETECT_TYPE,      // ?ж? UTP/SFTP
+    SE_MEASURE_LENGTH,  // TDR ????
+    SE_LOCATE_SHORT     // TDR ??λ??·??
   } SE_State;
 
-// 双端测量上下文
+// ??????
 typedef struct {
-    uint8_t pair_order;       // 0=straight, 1=crossover
+    uint8_t is_crosed;  // 0=straight, 1=crossover
+    uint8_t pair_order[8];
+}PairOrder;
+
+// ??????????
+typedef struct {
+    PairOrder pair_order;
     uint8_t type;       // 0=UTP, 1=SFTP
-    float   R;    // 测得的直流电阻
+    float   R;    // ???????????
 } DE_MeasCtx;
 
-// 单端测量上下文
+// ???????????
 typedef struct {
     uint8_t is_shorted;          // 0=no short, 1=short detected
     uint8_t type;       // 0=UTP, 1=SFTP
-    float   len;           // 测得的线缆长度
-    float   short_pos;        // 测得的短路点位置
+    float   len;           // ???????????
+    float   short_pos;        // ?????·??λ??
 } SE_MeasCtx;
 /* USER CODE END PTD */
 
@@ -87,7 +93,7 @@ volatile SE_State  g_se_substate  = SE_DETECT_SHORT;
 volatile uint8_t cal1_done = 0;
 volatile uint8_t cal2_done = 0;
 
-// 只能在while中访问
+// ?????while?з???
 DE_MeasCtx g_de_ctx;
 SE_MeasCtx g_se_ctx;
 /* USER CODE END PV */
@@ -103,8 +109,8 @@ void DE_detect_type(DE_MeasCtx *ctx);
 void DE_measure_R(DE_MeasCtx *ctx);
 
 void SE_detect_short(SE_MeasCtx *ctx);
-void SE_detect_type(SE_MeasCtx *ctx);
-void SE_measure_length(SE_MeasCtx *ctx);
+void SE_detect_type(SE_MeasCtx *ctx);   // ???????
+void SE_measure_length(SE_MeasCtx *ctx);    //????????
 void SE_measure_shortpos(SE_MeasCtx *ctx);
 
 uint8_t usart1_receive(void);
@@ -146,7 +152,14 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
+    HC4051_init(S0_GPIO_Port, S0_Pin,
+                S1_GPIO_Port, S1_Pin,
+                S2_GPIO_Port, S2_Pin,
+                E_GPIO_Port, E_Pin);
+    HC4051_init(S0_GPIO_Port, S0_Pin,
+                S1_GPIO_Port, S1_Pin,
+                S2_GPIO_Port, S2_Pin,
+                E_GPIO_Port, E_Pin);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -170,21 +183,21 @@ int main(void)
             break;
         }
 
-        // —— 校准：1m SFTP ——
+        // ???? У???1m SFTP ????
         case MODE_CAL_1M_SFTP:
             calibrate_1m_sftp();
             g_system_mode = MODE_IDLE;
             cal1_done = 1;
             break;
 
-        // —— 校准：50m UTP ——
+        // ???? У???50m UTP ????
         case MODE_CAL_50M_UTP:
             calibrate_50m_utp();
             g_system_mode = MODE_IDLE;
             cal2_done = 1;
             break;
 
-        // —— 双端检测 ——
+        // ???? ????? ????
         case MODE_DE:
             switch (g_de_substate) {
                 case DE_DETECT_ORDER:
@@ -198,17 +211,19 @@ int main(void)
                 case DE_MEASURE_R:
                     DE_measure_R(&g_de_ctx);
                     g_system_mode = MODE_IDLE;
+                    g_de_substate = DE_DETECT_ORDER;
                     break;
             }
             break;
 
-        // —— 单端检测 ——
+        // ???? ?????? ????
         case MODE_SE:
             switch (g_se_substate) {
                 case SE_DETECT_SHORT:
                     SE_detect_short(&g_se_ctx);
                     if (g_se_ctx.is_shorted == 1) {
-                        g_se_substate = MODE_IDLE;
+                        g_system_mode = MODE_IDLE;
+                        g_se_substate = SE_DETECT_SHORT;
                     }
                     else {
                         g_se_substate = SE_DETECT_SHORT;
@@ -288,6 +303,48 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+/* ?? main.c ???β???????????? tests.c ????????? */
+uint8_t usart1_receive(void) {
+    // TODO: ????? USART1?????????? '\0'
+    return '\0';
+}
+
+void calibrate_1m_sftp(void) {
+    // TODO: ???У????
+}
+void calibrate_50m_utp(void) {
+    // TODO: ???У????
+}
+
+void DE_detect_order(DE_MeasCtx *ctx) {
+    // TODO: ?ж????/???棬???? ctx->pair_order
+
+}
+void DE_detect_type(DE_MeasCtx *ctx) {
+    // TODO: ?ж? UTP/SFTP?????? ctx->type
+    ctx->type = 0;
+}
+void DE_measure_R(DE_MeasCtx *ctx) {
+    // TODO: ??????????裬???? ctx->R
+    ctx->R = 0.0f;
+}
+
+void SE_detect_short(SE_MeasCtx *ctx) {
+    // TODO: ??·??????? ctx->is_shorted
+    ctx->is_shorted = 0;
+}
+void SE_detect_type(SE_MeasCtx *ctx) {
+    // TODO: ?ж? UTP/SFTP?????? ctx->type
+    ctx->type = 0;
+}
+void SE_measure_length(SE_MeasCtx *ctx) {
+    // TODO: TDR ????????? ctx->len
+    ctx->len = 0.0f;
+}
+void SE_measure_shortpos(SE_MeasCtx *ctx) {
+    // TODO: TDR ??λ??·?????? ctx->short_pos
+    ctx->short_pos = 0.0f;
+}
 
 /* USER CODE END 4 */
 
