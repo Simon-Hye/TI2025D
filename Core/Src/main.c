@@ -18,58 +18,61 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <string.h>
+
 #include "74HC4051.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 typedef enum {
-    MODE_IDLE,          // ??????????
-    MODE_CAL_1M_SFTP,   // 1m SFTP ??§µ?
-    MODE_CAL_50M_UTP,   // 50m UTP ??§µ?
-    MODE_DE,    // ?????
-    MODE_SE     // ??????
+    MODE_IDLE,
+    MODE_CAL_1M_SFTP,   // 1m SFTP
+    MODE_CAL_50M_UTP,   // 50m UTP
+    MODE_DE,
+    MODE_SE
   } SystemMode;
 
-// ?????????
+
 typedef enum {
-    DE_DETECT_ORDER,      // ?§Ø???????
-    DE_DETECT_TYPE,   // ?§Ø? UTP/SFTP
-    DE_MEASURE_R   // ???????????
+    DE_DETECT_ORDER,      //
+    DE_DETECT_TYPE,   // UTP/SFTP
+    DE_MEASURE_R
   } DE_State;
 
-// ??????????
+
 typedef enum {
-    SE_DETECT_SHORT,        // ????¡¤
-    SE_DETECT_TYPE,      // ?§Ø? UTP/SFTP
-    SE_MEASURE_LENGTH,  // TDR ????
-    SE_LOCATE_SHORT     // TDR ??¦Ë??¡¤??
+    SE_DETECT_SHORT,
+    SE_DETECT_TYPE,
+    SE_MEASURE_LENGTH,
+    SE_LOCATE_SHORT
   } SE_State;
 
-// ??????
+
 typedef struct {
-    uint8_t is_crosed;  // 0=straight, 1=crossover
+    uint8_t is_crossed;  // 0=straight, 1=crossover
     uint8_t pair_order[8];
 }PairOrder;
 
-// ??????????
+
 typedef struct {
     PairOrder pair_order;
     uint8_t type;       // 0=UTP, 1=SFTP
-    float   R;    // ???????????
+    float   R;
 } DE_MeasCtx;
 
-// ???????????
+
 typedef struct {
     uint8_t is_shorted;          // 0=no short, 1=short detected
     uint8_t type;       // 0=UTP, 1=SFTP
-    float   len;           // ???????????
-    float   short_pos;        // ?????¡¤??¦Ë??
+    float   len;
+    float   short_pos;
 } SE_MeasCtx;
 /* USER CODE END PTD */
 
@@ -93,9 +96,12 @@ volatile SE_State  g_se_substate  = SE_DETECT_SHORT;
 volatile uint8_t cal1_done = 0;
 volatile uint8_t cal2_done = 0;
 
-// ?????while?§Ù???
+
 DE_MeasCtx g_de_ctx;
 SE_MeasCtx g_se_ctx;
+
+uint8_t usart1_rx_buf[RX_BUF_LEN];
+volatile uint8_t usart1_idle_flag = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -109,11 +115,11 @@ void DE_detect_type(DE_MeasCtx *ctx);
 void DE_measure_R(DE_MeasCtx *ctx);
 
 void SE_detect_short(SE_MeasCtx *ctx);
-void SE_detect_type(SE_MeasCtx *ctx);   // ???????
-void SE_measure_length(SE_MeasCtx *ctx);    //????????
+void SE_detect_type(SE_MeasCtx *ctx);
+void SE_measure_length(SE_MeasCtx *ctx);
 void SE_measure_shortpos(SE_MeasCtx *ctx);
 
-uint8_t usart1_receive(void);
+void usart1_receive(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -150,16 +156,16 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-    HC4051_init(S0_GPIO_Port, S0_Pin,
-                S1_GPIO_Port, S1_Pin,
-                S2_GPIO_Port, S2_Pin,
-                E_GPIO_Port, E_Pin);
-    HC4051_init(S0_GPIO_Port, S0_Pin,
-                S1_GPIO_Port, S1_Pin,
-                S2_GPIO_Port, S2_Pin,
-                E_GPIO_Port, E_Pin);
+    // HC4051_init(S0_GPIO_Port, S0_Pin,
+    //             S1_GPIO_Port, S1_Pin,
+    //             S2_GPIO_Port, S2_Pin,
+    //             E_GPIO_Port, E_Pin);
+    __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
+    HAL_UART_Receive_DMA(&huart1,usart1_rx_buf,RX_BUF_LEN);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -168,36 +174,40 @@ int main(void)
   {
      switch (g_system_mode) {
         case MODE_IDLE: {
-            char cmd = usart1_receive();
-            if (cmd == '1') {
-                g_system_mode = MODE_CAL_1M_SFTP;
-            } else if (cmd == '2') {
-                g_system_mode = MODE_CAL_50M_UTP;
-            } else if (cmd == '3') {
-                g_system_mode  = MODE_DE;
-                g_de_substate  = DE_DETECT_ORDER;
-            } else if (cmd == '4') {
-                g_system_mode  = MODE_SE;
-                g_se_substate  = SE_DETECT_SHORT;
+            if (usart1_idle_flag) {
+                HAL_UART_Transmit(&huart2, usart1_rx_buf, RX_BUF_LEN, 1000);
+                HAL_Delay(10);
+
+                uint8_t cmd = 0;    //  TODO
+                if (cmd == '1') {
+                    g_system_mode = MODE_CAL_1M_SFTP;
+                } else if (cmd == '2') {
+                    g_system_mode = MODE_CAL_50M_UTP;
+                } else if (cmd == '3') {
+                    g_system_mode  = MODE_DE;
+                    g_de_substate  = DE_DETECT_ORDER;
+                } else if (cmd == '4') {
+                    g_system_mode  = MODE_SE;
+                    g_se_substate  = SE_DETECT_SHORT;
+                }
+                usart1_idle_flag = 0;
+                memset(usart1_rx_buf,0,RX_BUF_LEN);
             }
             break;
         }
 
-        // ???? §µ???1m SFTP ????
         case MODE_CAL_1M_SFTP:
             calibrate_1m_sftp();
             g_system_mode = MODE_IDLE;
             cal1_done = 1;
             break;
 
-        // ???? §µ???50m UTP ????
         case MODE_CAL_50M_UTP:
             calibrate_50m_utp();
             g_system_mode = MODE_IDLE;
             cal2_done = 1;
             break;
 
-        // ???? ????? ????
         case MODE_DE:
             switch (g_de_substate) {
                 case DE_DETECT_ORDER:
@@ -216,7 +226,6 @@ int main(void)
             }
             break;
 
-        // ???? ?????? ????
         case MODE_SE:
             switch (g_se_substate) {
                 case SE_DETECT_SHORT:
@@ -303,38 +312,38 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-/* ?? main.c ???¦Â???????????? tests.c ????????? */
-uint8_t usart1_receive(void) {
-    // TODO: ????? USART1?????????? '\0'
-    return '\0';
+void usart1_receive(void) {
+    if (usart1_idle_flag) {
+        usart1_idle_flag = 0;
+    }
 }
 
 void calibrate_1m_sftp(void) {
-    // TODO: ???§µ????
+    // TODO: ???ï¿½ï¿½????
 }
 void calibrate_50m_utp(void) {
-    // TODO: ???§µ????
+    // TODO: ???ï¿½ï¿½????
 }
 
 void DE_detect_order(DE_MeasCtx *ctx) {
-    // TODO: ?§Ø????/???—¨???? ctx->pair_order
+    // TODO: ?ï¿½ï¿½????/???ï¿½ï¿½???? ctx->pair_order
 
 }
 void DE_detect_type(DE_MeasCtx *ctx) {
-    // TODO: ?§Ø? UTP/SFTP?????? ctx->type
+    // TODO: ?ï¿½ï¿½? UTP/SFTP?????? ctx->type
     ctx->type = 0;
 }
 void DE_measure_R(DE_MeasCtx *ctx) {
-    // TODO: ??????????Ñk???? ctx->R
+    // TODO: ??????????ï¿½k???? ctx->R
     ctx->R = 0.0f;
 }
 
 void SE_detect_short(SE_MeasCtx *ctx) {
-    // TODO: ??¡¤??????? ctx->is_shorted
+    // TODO: ??ï¿½ï¿½??????? ctx->is_shorted
     ctx->is_shorted = 0;
 }
 void SE_detect_type(SE_MeasCtx *ctx) {
-    // TODO: ?§Ø? UTP/SFTP?????? ctx->type
+    // TODO: ?ï¿½ï¿½? UTP/SFTP?????? ctx->type
     ctx->type = 0;
 }
 void SE_measure_length(SE_MeasCtx *ctx) {
@@ -342,7 +351,7 @@ void SE_measure_length(SE_MeasCtx *ctx) {
     ctx->len = 0.0f;
 }
 void SE_measure_shortpos(SE_MeasCtx *ctx) {
-    // TODO: TDR ??¦Ë??¡¤?????? ctx->short_pos
+    // TODO: TDR ??ï¿½ï¿½??ï¿½ï¿½?????? ctx->short_pos
     ctx->short_pos = 0.0f;
 }
 

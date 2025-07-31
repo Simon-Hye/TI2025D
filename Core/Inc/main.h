@@ -67,7 +67,7 @@ void Error_Handler(void);
 #define E_GPIO_Port GPIOC
 
 /* USER CODE BEGIN Private defines */
-
+# define RX_BUF_LEN 256
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
