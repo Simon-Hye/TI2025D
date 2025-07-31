@@ -175,18 +175,19 @@ int main(void)
      switch (g_system_mode) {
         case MODE_IDLE: {
             if (usart1_idle_flag) {
+
                 HAL_UART_Transmit(&huart2, usart1_rx_buf, RX_BUF_LEN, 1000);
                 HAL_Delay(10);
 
-                uint8_t cmd = 0;    //  TODO
-                if (cmd == '1') {
+                uint8_t cmd = usart1_rx_buf[0];
+                if (cmd == 0x01) {
                     g_system_mode = MODE_CAL_1M_SFTP;
-                } else if (cmd == '2') {
+                } else if (cmd == 0x02) {
                     g_system_mode = MODE_CAL_50M_UTP;
-                } else if (cmd == '3') {
+                } else if (cmd == 0x03) {
                     g_system_mode  = MODE_DE;
                     g_de_substate  = DE_DETECT_ORDER;
-                } else if (cmd == '4') {
+                } else if (cmd == 0x04) {
                     g_system_mode  = MODE_SE;
                     g_se_substate  = SE_DETECT_SHORT;
                 }
@@ -235,7 +236,7 @@ int main(void)
                         g_se_substate = SE_DETECT_SHORT;
                     }
                     else {
-                        g_se_substate = SE_DETECT_SHORT;
+                        g_se_substate = SE_DETECT_TYPE;
                     }
                     break;
                 case SE_DETECT_TYPE:
