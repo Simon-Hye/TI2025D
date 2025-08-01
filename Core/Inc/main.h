@@ -57,14 +57,26 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define S1_Pin GPIO_PIN_7
-#define S1_GPIO_Port GPIOA
-#define S2_Pin GPIO_PIN_5
-#define S2_GPIO_Port GPIOC
-#define S0_Pin GPIO_PIN_6
-#define S0_GPIO_Port GPIOC
-#define E_Pin GPIO_PIN_7
-#define E_GPIO_Port GPIOC
+#define AS2_Pin GPIO_PIN_7
+#define AS2_GPIO_Port GPIOA
+#define AS1_Pin GPIO_PIN_5
+#define AS1_GPIO_Port GPIOC
+#define BS0_Pin GPIO_PIN_2
+#define BS0_GPIO_Port GPIOB
+#define BS2_Pin GPIO_PIN_10
+#define BS2_GPIO_Port GPIOB
+#define AS0_Pin GPIO_PIN_6
+#define AS0_GPIO_Port GPIOC
+#define A_E_Pin GPIO_PIN_7
+#define A_E_GPIO_Port GPIOC
+#define Z_TX_Pin GPIO_PIN_11
+#define Z_TX_GPIO_Port GPIOA
+#define Z_RX_Pin GPIO_PIN_12
+#define Z_RX_GPIO_Port GPIOA
+#define B_E_Pin GPIO_PIN_4
+#define B_E_GPIO_Port GPIOB
+#define BS1_Pin GPIO_PIN_5
+#define BS1_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 # define RX_BUF_LEN 256

@@ -32,7 +32,7 @@ int HC4051_init(
     dev->S1_port = p1p; dev->S1_pin = p1;
     dev->S2_port = p2p; dev->S2_pin = p2;
     dev->E_port  = p3p; dev->E_pin  = p3;
-
+    dev->id = device_count;
     HAL_GPIO_WritePin(dev->E_port, dev->E_pin, GPIO_PIN_SET); // 默认关闭
 
     return device_count++;

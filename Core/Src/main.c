@@ -36,7 +36,8 @@ typedef enum {
     MODE_CAL_1M_SFTP,   // 1m SFTP
     MODE_CAL_50M_UTP,   // 50m UTP
     MODE_DE,
-    MODE_SE
+    MODE_SE,
+    MODE_DEBUG
   } SystemMode;
 
 
@@ -57,7 +58,7 @@ typedef enum {
 
 typedef struct {
     uint8_t is_crossed;  // 0=straight, 1=crossover
-    uint8_t pair_order[8];
+    uint8_t order[8];
 }PairOrder;
 
 
@@ -160,10 +161,16 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-    // HC4051_init(S0_GPIO_Port, S0_Pin,
-    //             S1_GPIO_Port, S1_Pin,
-    //             S2_GPIO_Port, S2_Pin,
-    //             E_GPIO_Port, E_Pin);
+  g_system_mode = MODE_DEBUG;
+  HC4051_init(AS0_GPIO_Port, AS0_Pin,
+                AS1_GPIO_Port, AS1_Pin,
+                AS2_GPIO_Port, AS2_Pin,
+                A_E_GPIO_Port, A_E_Pin);    //TX
+  HC4051_init(BS0_GPIO_Port, BS0_Pin,
+                BS1_GPIO_Port, BS1_Pin,
+                BS2_GPIO_Port, BS2_Pin,
+                B_E_GPIO_Port, B_E_Pin);    //RX
+
     __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
     HAL_UART_Receive_DMA(&huart1,usart1_rx_buf,RX_BUF_LEN);
   /* USER CODE END 2 */
@@ -173,6 +180,21 @@ int main(void)
   while (1)
   {
      switch (g_system_mode) {
+         case MODE_DEBUG: {
+             DE_detect_order(&g_de_ctx);
+             for (uint8_t i = 0; i < 8; i++) {
+                 // g_de_ctx.order.pair[i] 存储了本端第 i 根线对应对端哪根线
+                 printf("Line %u -> %u\r\n", i, g_de_ctx.pair_order.order[i]);
+             }
+             // 打印是否有交叉
+             if (g_de_ctx.pair_order.is_crossed) {
+                 printf("Crossover detected!\r\n");
+             } else {
+                 printf("Straight-through cable.\r\n");
+             }
+             HAL_Delay(1000);
+             break;
+         }
         case MODE_IDLE: {
             if (usart1_idle_flag) {
 
@@ -327,8 +349,28 @@ void calibrate_50m_utp(void) {
 }
 
 void DE_detect_order(DE_MeasCtx *ctx) {
-    // TODO: ?��????/???��???? ctx->pair_order
-
+    uint8_t is_crossed_flag = 0;
+    HAL_GPIO_WritePin(Z_TX_GPIO_Port,Z_TX_Pin,GPIO_PIN_SET);
+    for (uint8_t i = 0; i < 8; i++) {
+        ctx->pair_order.order[i] = 0xFF;
+        HC4051_open(0,i);
+        HAL_Delay(10);
+        for (uint8_t j = 0; j < 8; j++) {
+            HC4051_open(1,j);
+            HAL_Delay(10);
+            if (HAL_GPIO_ReadPin(Z_RX_GPIO_Port,Z_RX_Pin) == GPIO_PIN_SET) {
+                ctx->pair_order.order[i] = j;
+                if (i != j) {
+                    is_crossed_flag = 1; // crossed
+                }
+                break;
+            }
+        }
+    }
+    ctx->pair_order.is_crossed = is_crossed_flag;
+    HC4051_close(0);
+    HC4051_close(1);
+    HAL_GPIO_WritePin(Z_TX_GPIO_Port, Z_TX_Pin, GPIO_PIN_RESET);
 }
 void DE_detect_type(DE_MeasCtx *ctx) {
     // TODO: ?��? UTP/SFTP?????? ctx->type
