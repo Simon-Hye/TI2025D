@@ -29,6 +29,7 @@
 
 #include "74HC4051.h"
 #include "fdc2214.h"
+#include "XDMK0310P.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -162,8 +163,9 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  g_system_mode = MODE_IDLE;
+  g_system_mode = MODE_DEBUG;
 
   HC4051_init(AS0_GPIO_Port, AS0_Pin,
                 AS1_GPIO_Port, AS1_Pin,
@@ -185,9 +187,9 @@ int main(void)
   {
      switch (g_system_mode) {
          case MODE_DEBUG: {
-             SE_measure_length(&g_se_ctx);
-             printf("%4f m\r\n", g_se_ctx.len);
-
+             DE_measure_R(&g_de_ctx);
+             printf("%4f Ohm\r\n", g_de_ctx.R);
+             HAL_Delay(500);
              break;
          }
         case MODE_IDLE: {
@@ -235,12 +237,12 @@ int main(void)
                 case DE_DETECT_ORDER:
                     DE_detect_order(&g_de_ctx);
                     if (g_de_ctx.pair_order.is_crossed) {
-                        printf("Shuang.t0.txt=\" 交叉 \"\xff\xff\xff");
-                        printf("Shuang.t0.txt=\" 交叉 \"\xff\xff\xff\r\n");
+                        printf("Shuang.t0.txt=\" crossed \"\xff\xff\xff");
+                        printf("Shuang.t0.txt=\" crossed \"\xff\xff\xff\r\n");
                     }
                     else if (!g_de_ctx.pair_order.is_crossed) {
-                        printf("Shuang.t0.txt=\" 直连 \"\xff\xff\xff");
-                        printf("Shuang.t0.txt=\" 直连 \"\xff\xff\xff\r\n");
+                        printf("Shuang.t0.txt=\" straight \"\xff\xff\xff");
+                        printf("Shuang.t0.txt=\" straight \"\xff\xff\xff\r\n");
                     }
                     g_de_substate = DE_DETECT_TYPE;
                     break;
@@ -258,8 +260,8 @@ int main(void)
                     break;
                 case DE_MEASURE_R:
                     DE_measure_R(&g_de_ctx);
-                    printf("Shuang.t2.txt=\" %.5g Ω \"\xff\xff\xff",g_de_ctx.R);
-                    printf("Shuang.t2.txt=\" %.5g Ω \"\xff\xff\xff\r\n",g_de_ctx.R);
+                    printf("Shuang.t2.txt=\" %.5g Ohm \"\xff\xff\xff",g_de_ctx.R);
+                    printf("Shuang.t2.txt=\" %.5g Ohm \"\xff\xff\xff\r\n",g_de_ctx.R);
                     g_system_mode = MODE_IDLE;
                     g_de_substate = DE_DETECT_ORDER;
                     break;
@@ -273,13 +275,13 @@ int main(void)
                     if (g_se_ctx.is_shorted == 1) {
                         printf("Dan.t0.txt=\" NaN \"\xff\xff\xff");
                         printf("Dan.t0.txt=\" NaN \"\xff\xff\xff\r\n");
-                        printf("Dan.t1.txt=\" 短路 \"\xff\xff\xff");
-                        printf("Dan.t1.txt=\" 短路 \"\xff\xff\xff\r\n");
+                        printf("Dan.t1.txt=\" short \"\xff\xff\xff");
+                        printf("Dan.t1.txt=\" short \"\xff\xff\xff\r\n");
                         g_se_substate = SE_LOCATE_SHORT;
                     }
                     else {
-                        printf("Dan.t1.txt=\" 无短路 \"\xff\xff\xff");
-                        printf("Dan.t1.txt=\" 无短路 \"\xff\xff\xff\r\n");
+                        printf("Dan.t1.txt=\" short \"\xff\xff\xff");
+                        printf("Dan.t1.txt=\" short \"\xff\xff\xff\r\n");
                         g_se_substate = SE_DETECT_TYPE;
                     }
                     break;
@@ -370,7 +372,7 @@ void calibrate_50m_utp(void) {
 
 void DE_detect_order(DE_MeasCtx *ctx) {
     uint8_t is_crossed_flag = 0;
-    HAL_GPIO_WritePin(Z_TX_GPIO_Port,Z_TX_Pin,GPIO_PIN_SET);
+    HAL_GPIO_WritePin(Z_A_GPIO_Port,Z_A_Pin,GPIO_PIN_SET);
     for (uint8_t i = 0; i < 8; i++) {
         ctx->pair_order.order[i] = 0xFF;
         HC4051_open(0,i);
@@ -378,7 +380,7 @@ void DE_detect_order(DE_MeasCtx *ctx) {
         for (uint8_t j = 0; j < 8; j++) {
             HC4051_open(1,j);
             HAL_Delay(10);
-            if (HAL_GPIO_ReadPin(Z_RX_GPIO_Port,Z_RX_Pin) == GPIO_PIN_SET) {
+            if (HAL_GPIO_ReadPin(Z_B_GPIO_Port,Z_B_Pin) == GPIO_PIN_SET) {
                 ctx->pair_order.order[i] = j;
                 if (i != j) {
                     is_crossed_flag = 1; // crossed
@@ -390,15 +392,14 @@ void DE_detect_order(DE_MeasCtx *ctx) {
     ctx->pair_order.is_crossed = is_crossed_flag;
     HC4051_close(0);
     HC4051_close(1);
-    HAL_GPIO_WritePin(Z_TX_GPIO_Port, Z_TX_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(Z_A_GPIO_Port, Z_A_Pin, GPIO_PIN_RESET);
 }
 void DE_detect_type(DE_MeasCtx *ctx) {
     // TODO: ???? UTP/SFTP?????? ctx->type
     ctx->type = 0;
 }
 void DE_measure_R(DE_MeasCtx *ctx) {
-    // TODO: ???????????k???? ctx->R
-    ctx->R = 0.0f;
+    ctx->R = XDMK0310P_getresister(&huart3);
 }
 
 void SE_detect_short(SE_MeasCtx *ctx) {

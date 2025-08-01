@@ -39,7 +39,9 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/74HC4051.h
         Core/Src/74HC4051.c
         Core/Inc/fdc2214.h
-        Core/Src/fdc2214.c)
+        Core/Src/fdc2214.c
+        Core/Inc/XDMK0310P.h
+        Core/Src/XDMK0310P.c)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)

@@ -57,6 +57,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define CS0_Pin GPIO_PIN_5
+#define CS0_GPIO_Port GPIOA
+#define CS1_Pin GPIO_PIN_6
+#define CS1_GPIO_Port GPIOA
 #define AS2_Pin GPIO_PIN_7
 #define AS2_GPIO_Port GPIOA
 #define AS1_Pin GPIO_PIN_5
@@ -69,14 +73,24 @@ void Error_Handler(void);
 #define AS0_GPIO_Port GPIOC
 #define A_E_Pin GPIO_PIN_7
 #define A_E_GPIO_Port GPIOC
-#define Z_TX_Pin GPIO_PIN_11
-#define Z_TX_GPIO_Port GPIOA
-#define Z_RX_Pin GPIO_PIN_12
-#define Z_RX_GPIO_Port GPIOA
+#define A_G_Pin GPIO_PIN_8
+#define A_G_GPIO_Port GPIOC
+#define B_G_Pin GPIO_PIN_9
+#define B_G_GPIO_Port GPIOC
+#define C_E_Pin GPIO_PIN_9
+#define C_E_GPIO_Port GPIOA
+#define Z_A_Pin GPIO_PIN_11
+#define Z_A_GPIO_Port GPIOA
+#define Z_B_Pin GPIO_PIN_12
+#define Z_B_GPIO_Port GPIOA
 #define B_E_Pin GPIO_PIN_4
 #define B_E_GPIO_Port GPIOB
 #define BS1_Pin GPIO_PIN_5
 #define BS1_GPIO_Port GPIOB
+#define CS2_Pin GPIO_PIN_6
+#define CS2_GPIO_Port GPIOB
+#define Z_C_Pin GPIO_PIN_9
+#define Z_C_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 # define RX_BUF_LEN 256
