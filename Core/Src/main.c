@@ -163,7 +163,8 @@ int main(void)
   MX_USART1_UART_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  g_system_mode = MODE_DEBUG;
+  g_system_mode = MODE_IDLE;
+
   HC4051_init(AS0_GPIO_Port, AS0_Pin,
                 AS1_GPIO_Port, AS1_Pin,
                 AS2_GPIO_Port, AS2_Pin,
@@ -217,26 +218,48 @@ int main(void)
             calibrate_1m_sftp();
             g_system_mode = MODE_IDLE;
             cal1_done = 1;
+             printf("Jiao.t0.txt=\" Ready1 \"\xff\xff\xff");
+             printf("Jiao.t0.txt=\" Ready1 \"\xff\xff\xff\r\n");
             break;
 
         case MODE_CAL_50M_UTP:
             calibrate_50m_utp();
             g_system_mode = MODE_IDLE;
             cal2_done = 1;
+             printf("Jiao.t1.txt=\" Ready2 \"\xff\xff\xff");
+             printf("Jiao.t1.txt=\" Ready2 \"\xff\xff\xff\r\n");
             break;
 
         case MODE_DE:
             switch (g_de_substate) {
                 case DE_DETECT_ORDER:
                     DE_detect_order(&g_de_ctx);
+                    if (g_de_ctx.pair_order.is_crossed) {
+                        printf("Shuang.t0.txt=\" ½»²æ \"\xff\xff\xff");
+                        printf("Shuang.t0.txt=\" ½»²æ \"\xff\xff\xff\r\n");
+                    }
+                    else if (!g_de_ctx.pair_order.is_crossed) {
+                        printf("Shuang.t0.txt=\" Ö±Á¬ \"\xff\xff\xff");
+                        printf("Shuang.t0.txt=\" Ö±Á¬ \"\xff\xff\xff\r\n");
+                    }
                     g_de_substate = DE_DETECT_TYPE;
                     break;
                 case DE_DETECT_TYPE:
                     DE_detect_type(&g_de_ctx);
+                    if (g_de_ctx.type == 0) {
+                        printf("Shuang.t1.txt=\" UTP \"\xff\xff\xff");
+                        printf("Shuang.t1.txt=\" UTP \"\xff\xff\xff\r\n");
+                    }
+                    else if (g_de_ctx.type == 1) {
+                        printf("Shuang.t1.txt=\" SFTP \"\xff\xff\xff");
+                        printf("Shuang.t1.txt=\" SFTP \"\xff\xff\xff\r\n");
+                    }
                     g_de_substate = DE_MEASURE_R;
                     break;
                 case DE_MEASURE_R:
                     DE_measure_R(&g_de_ctx);
+                    printf("Shuang.t2.txt=\" %.5g ¦¸ \"\xff\xff\xff",g_de_ctx.R);
+                    printf("Shuang.t2.txt=\" %.5g ¦¸ \"\xff\xff\xff\r\n",g_de_ctx.R);
                     g_system_mode = MODE_IDLE;
                     g_de_substate = DE_DETECT_ORDER;
                     break;
@@ -248,10 +271,15 @@ int main(void)
                 case SE_DETECT_SHORT:
                     SE_detect_short(&g_se_ctx);
                     if (g_se_ctx.is_shorted == 1) {
-                        g_system_mode = MODE_IDLE;
-                        g_se_substate = SE_DETECT_SHORT;
+                        printf("Dan.t0.txt=\" NaN \"\xff\xff\xff");
+                        printf("Dan.t0.txt=\" NaN \"\xff\xff\xff\r\n");
+                        printf("Dan.t1.txt=\" ¶ÌÂ· \"\xff\xff\xff");
+                        printf("Dan.t1.txt=\" ¶ÌÂ· \"\xff\xff\xff\r\n");
+                        g_se_substate = SE_LOCATE_SHORT;
                     }
                     else {
+                        printf("Dan.t1.txt=\" ÎÞ¶ÌÂ· \"\xff\xff\xff");
+                        printf("Dan.t1.txt=\" ÎÞ¶ÌÂ· \"\xff\xff\xff\r\n");
                         g_se_substate = SE_DETECT_TYPE;
                     }
                     break;
@@ -261,10 +289,14 @@ int main(void)
                     break;
                 case SE_MEASURE_LENGTH:
                     SE_measure_length(&g_se_ctx);
+                    printf("Dan.t0.txt=\" %.5g m \"\xff\xff\xff",g_se_ctx.len);
+                    printf("Dan.t0.txt=\" %.5g m \"\xff\xff\xff\r\n",g_se_ctx.len);
                     g_se_substate = SE_LOCATE_SHORT;
                     break;
                 case SE_LOCATE_SHORT:
                     SE_measure_shortpos(&g_se_ctx);
+                    printf("Dan.t2.txt=\" %.5g m \"\xff\xff\xff",g_se_ctx.short_pos);
+                    printf("Dan.t2.txt=\" %.5g m \"\xff\xff\xff\r\n",g_se_ctx.short_pos);
                     g_system_mode = MODE_IDLE;
                     break;
             }
@@ -330,10 +362,10 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 void calibrate_1m_sftp(void) {
-    // TODO: ???ï¿½ï¿½????
+    // TODO: ?????????
 }
 void calibrate_50m_utp(void) {
-    // TODO: ???ï¿½ï¿½????
+    // TODO: ?????????
 }
 
 void DE_detect_order(DE_MeasCtx *ctx) {
@@ -361,20 +393,20 @@ void DE_detect_order(DE_MeasCtx *ctx) {
     HAL_GPIO_WritePin(Z_TX_GPIO_Port, Z_TX_Pin, GPIO_PIN_RESET);
 }
 void DE_detect_type(DE_MeasCtx *ctx) {
-    // TODO: ?ï¿½ï¿½? UTP/SFTP?????? ctx->type
+    // TODO: ???? UTP/SFTP?????? ctx->type
     ctx->type = 0;
 }
 void DE_measure_R(DE_MeasCtx *ctx) {
-    // TODO: ??????????ï¿½k???? ctx->R
+    // TODO: ???????????k???? ctx->R
     ctx->R = 0.0f;
 }
 
 void SE_detect_short(SE_MeasCtx *ctx) {
-    // TODO: ??ï¿½ï¿½??????? ctx->is_shorted
+    // TODO: ??????????? ctx->is_shorted
     ctx->is_shorted = 0;
 }
 void SE_detect_type(SE_MeasCtx *ctx) {
-    // TODO: ?ï¿½ï¿½? UTP/SFTP?????? ctx->type
+    // TODO: ???? UTP/SFTP?????? ctx->type
     ctx->type = 0;
 }
 void SE_measure_length(SE_MeasCtx *ctx) {
@@ -385,7 +417,7 @@ void SE_measure_length(SE_MeasCtx *ctx) {
     ctx->len = len;
 }
 void SE_measure_shortpos(SE_MeasCtx *ctx) {
-    // TODO: TDR ??ï¿½ï¿½??ï¿½ï¿½?????? ctx->short_pos
+    // TODO: TDR ?????????????? ctx->short_pos
     ctx->short_pos = 0.0f;
 }
 
