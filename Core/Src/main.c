@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "dma.h"
+#include "i2c.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -27,6 +28,7 @@
 #include <string.h>
 
 #include "74HC4051.h"
+#include "fdc2214.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -120,7 +122,6 @@ void SE_detect_type(SE_MeasCtx *ctx);
 void SE_measure_length(SE_MeasCtx *ctx);
 void SE_measure_shortpos(SE_MeasCtx *ctx);
 
-void usart1_receive(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -160,6 +161,7 @@ int main(void)
   MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   g_system_mode = MODE_DEBUG;
   HC4051_init(AS0_GPIO_Port, AS0_Pin,
@@ -171,6 +173,7 @@ int main(void)
                 BS2_GPIO_Port, BS2_Pin,
                 B_E_GPIO_Port, B_E_Pin);    //RX
 
+    FDC2214_Init(hi2c1);
     __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
     HAL_UART_Receive_DMA(&huart1,usart1_rx_buf,RX_BUF_LEN);
   /* USER CODE END 2 */
@@ -181,18 +184,9 @@ int main(void)
   {
      switch (g_system_mode) {
          case MODE_DEBUG: {
-             DE_detect_order(&g_de_ctx);
-             for (uint8_t i = 0; i < 8; i++) {
-                 // g_de_ctx.order.pair[i] 存储了本端第 i 根线对应对端哪根线
-                 printf("Line %u -> %u\r\n", i, g_de_ctx.pair_order.order[i]);
-             }
-             // 打印是否有交叉
-             if (g_de_ctx.pair_order.is_crossed) {
-                 printf("Crossover detected!\r\n");
-             } else {
-                 printf("Straight-through cable.\r\n");
-             }
-             HAL_Delay(1000);
+             SE_measure_length(&g_se_ctx);
+             printf("%4f m\r\n", g_se_ctx.len);
+
              break;
          }
         case MODE_IDLE: {
@@ -335,12 +329,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void usart1_receive(void) {
-    if (usart1_idle_flag) {
-        usart1_idle_flag = 0;
-    }
-}
-
 void calibrate_1m_sftp(void) {
     // TODO: ???��????
 }
@@ -390,8 +378,11 @@ void SE_detect_type(SE_MeasCtx *ctx) {
     ctx->type = 0;
 }
 void SE_measure_length(SE_MeasCtx *ctx) {
-    // TODO: TDR ????????? ctx->len
-    ctx->len = 0.0f;
+    float FDC2214_Value = 0;
+    float len;
+    FDC2214_Value = FDC2214_Cap_Calculate(0);
+    len = FDC2214_Value * 0.025986 - 1.39567; //to be calibrated
+    ctx->len = len;
 }
 void SE_measure_shortpos(SE_MeasCtx *ctx) {
     // TODO: TDR ??��??��?????? ctx->short_pos
